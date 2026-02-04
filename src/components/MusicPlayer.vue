@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import AuthModal from './AuthModal.vue'
 
 const props = defineProps<{
   coverImage?: string
@@ -20,7 +21,9 @@ const defaultTrack: Track = {
   id: 1,
   title: props.title || 'Neon Fractal',
   artist: props.artist || 'Cyberia',
-  src: props.audioSrc || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+  src:
+    props.audioSrc ||
+    'https://raw.githubusercontent.com/muhammederdem/mini-player/master/mp3/1.mp3',
   cover: props.coverImage || new URL('../assets/cover.png', import.meta.url).href,
 }
 
@@ -37,6 +40,8 @@ const volume = ref(0.8)
 const isMuted = ref(false)
 const prevVolume = ref(0.8)
 const showPlaylist = ref(false)
+const showAuth = ref(false)
+const errorMsg = ref('')
 
 const currentTrack = computed(() => playlist.value[currentTrackIndex.value] || defaultTrack)
 
@@ -207,7 +212,15 @@ const togglePlay = async () => {
   if (isPlaying.value) {
     audioRef.value.pause()
   } else {
-    audioRef.value.play().catch((e) => console.error('Playback failed:', e))
+    try {
+      await audioRef.value.play()
+      errorMsg.value = ''
+    } catch (e) {
+      console.error('Playback failed:', e)
+      errorMsg.value = 'Playback failed. Try a local file.'
+      isPlaying.value = false // Revert state
+      return
+    }
   }
   isPlaying.value = !isPlaying.value
 }
@@ -337,6 +350,7 @@ onUnmounted(() => {
 
 <template>
   <div class="player-container" @dragover.prevent @drop.prevent="handleDrop">
+    <AuthModal v-if="showAuth" @close="showAuth = false" />
     <div class="glass-card" :class="{ 'playlist-open': showPlaylist }">
       <!-- Playlist Drawer -->
       <transition name="slide">
@@ -429,6 +443,22 @@ onUnmounted(() => {
               class="volume-slider"
             />
           </div>
+          <button class="icon-btn" @click="showAuth = true" title="Register">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </button>
         </div>
 
         <div class="cover-art-wrapper">
@@ -442,6 +472,7 @@ onUnmounted(() => {
         <div class="track-info">
           <h2>{{ currentTrack.title }}</h2>
           <p>{{ currentTrack.artist }}</p>
+          <p v-if="errorMsg" class="error-text">{{ errorMsg }}</p>
         </div>
 
         <div class="extra-controls">
@@ -549,6 +580,7 @@ onUnmounted(() => {
         @timeupdate="updateProgress"
         @ended="onEnded"
         @loadedmetadata="updateProgress"
+        crossorigin="anonymous"
       ></audio>
     </div>
   </div>
@@ -647,7 +679,15 @@ onUnmounted(() => {
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
+  white-space: nowrap;
+  overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.error-text {
+  color: #ff5555;
+  font-size: 0.8rem;
+  margin-top: 5px;
 }
 
 .track-artist-list {
